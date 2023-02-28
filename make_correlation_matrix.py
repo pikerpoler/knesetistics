@@ -1,5 +1,8 @@
 import numpy as np
+import json
 
+import sys
+np.set_printoptions(threshold=sys.maxsize)
 
 def matrix_from_dictionary(data, party_per_politician):
     """
@@ -24,8 +27,9 @@ def matrix_from_dictionary(data, party_per_politician):
             index += 1
 
     # create matrix
-    matrix = np.full((len(data), len(data)), -1, dtype=float)
+    matrix = np.full((len(data), len(data)), np.NAN, dtype=float)
     for politician1, i in index_per_politician.items():
+        print(f'Calculating politician {i} ({politician1}) from party {party_per_politician[politician1]}')
         for politician2, j in index_per_politician.items():
             votes1 = data[politician1]
             votes2 = data[politician2]
@@ -79,9 +83,30 @@ def create_from_random():
     matrix = matrix_from_dictionary(data, party_per_politician)
     return matrix
 
+def create_from_file(knesset_number='25', ignore_unanimous=True):
+    votes = json.load(open('votes.json'))
+    votes_per_knesset = votes['votes_per_knesset']
+    politician_parties_per_knesset = votes['politician_parties_per_knesset']
+    if ignore_unanimous:
+        agreed_votes = set()
+        opposed_votes = set()
+        for politician in votes_per_knesset[knesset_number]:
+            for vote in votes_per_knesset[knesset_number][politician]:
+                if votes_per_knesset[knesset_number][politician][vote] == 1:
+                    agreed_votes.add(vote)
+                elif votes_per_knesset[knesset_number][politician][vote] == 0:
+                    opposed_votes.add(vote)
+        valid_votes = agreed_votes.intersection(opposed_votes)
+        for politician in votes_per_knesset[knesset_number]:
+            for vote in list(votes_per_knesset[knesset_number][politician].keys()):
+                if vote not in valid_votes:
+                    del votes_per_knesset[knesset_number][politician][vote]
+
+    matrix = matrix_from_dictionary(votes_per_knesset[knesset_number], politician_parties_per_knesset[knesset_number])
+    return matrix
+
 def main():
-    # matrix = matrix_from_dictionary(data, party_per_politician)
-    matrix = create_from_random()
+    matrix = create_from_file()
     print(matrix)
     np.save('test.npy', matrix)
 
